@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}Request to print{% endblock %}
+{% block main_class %}narrow{% endblock %}
+{% block nav %}
+  <a href="{{ url_for('admin_login') }}">Admin</a>
+{% endblock %}
+{% block content %}
+  <div class="eyebrow">Employee form</div>
+  <h1>Log your print job</h1>
+  <p class="lead">Fill this in before you print. It's recorded instantly — no need to wait, go ahead and print right after.</p>
+
+  <div class="card">
+    <form method="POST" enctype="multipart/form-data">
+      <label for="employee_code">Printer Account ID</label>
+      <input type="text" id="employee_code" name="employee_code" class="mono" placeholder="e.g. 1234" maxlength="4" pattern="\d{4}" required>
+
+      <label for="name">Full name</label>
+      <input type="text" id="name" name="name" placeholder="Auto-filled" readonly>
+
+      <label for="department">Department</label>
+      <input type="text" id="department" name="department" placeholder="Auto-filled" readonly>
+
+      <label>Document(s) to print (PDF)</label>
+
+      <!-- Hidden real file input -->
+      <input type="file" id="document" name="document" accept=".pdf" multiple required style="display:none;">
+
+      <!-- Drag & drop zone -->
+      <div id="dropZone" class="dropzone" onclick="document.getElementById('document').click()">
+        <div class="dz-icon">📄</div>
+        <div class="dz-title">Drag &amp; drop PDFs here</div>
+        <div class="dz-hint">or <span style="text-decoration: underline;">click to browse</span></div>
+      </div>
+
+      <!-- File list preview -->
+      <ul id="fileList" class="file-chip-list"></ul>
+
+      <label for="pages">Number of pages</label>
+      <input type="number" id="pages" name="pages" class="mono" placeholder="Auto-counted" readonly required>
+
+      <label for="client">Client / project</label>
+      <input type="text" id="client" name="client" placeholder="Which client or project is this for?" required>
+
+      <label for="purpose">Purpose</label>
+      <textarea id="purpose" name="purpose" placeholder="Why are you printing this?" required></textarea>
+
+      <!-- Private Print option -->
+      <label class="check-row">
+        <input type="checkbox" id="private_print" name="private_print">
+        <span>🔒 Keep as private print job (requires PIN release at the printer)</span>
+      </label>
+
+      <div style="margin-top: 22px;">
+        <button type="submit">Log and continue to print →</button>
+      </div>
+    </form>
+  </div>
+
+  <style>
+    .dropzone {
+      border: 1.5px dashed var(--accent);
+      border-radius: var(--radius-sm);
+      padding: 34px 20px;
+      text-align: center;
+      background: var(--accent-soft);
+      cursor: pointer;
+      transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+      margin-bottom: 8px;
+    }
+    .dropzone:hover { transform: translateY(-1px); }
+    .dz-icon { font-size: 30px; margin-bottom: 8px; }
+    .dz-title { font-weight: 600; color: var(--accent-dark); font-size: 14.5px; }
+    .dz-hint { color: var(--ink-soft); font-size: 12.5px; margin-top: 4px; }
+
+    .file-chip-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .file-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 20px; padding: 5px 12px;
+      font-size: 12.5px; color: var(--ink);
+      box-shadow: 0 1px 2px rgba(24,38,32,0.05);
+    }
+    .file-chip button {
+      background: none; border: none; cursor: pointer; padding: 0;
+      color: var(--ink-soft); font-size: 14px; line-height: 1;
+      box-shadow: none;
+    }
+    .file-chip button:hover { color: var(--warn); transform: none; box-shadow: none; background: none; }
+
+    .check-row {
+      display: flex; align-items: center; gap: 9px;
+      margin: 20px 0 4px;
+      font-weight: normal;
+      font-size: 13.5px;
+      color: var(--ink);
+      cursor: pointer;
+      user-select: none;
+    }
+    .check-row input { width: auto; margin: 0; cursor: pointer; }
+  </style>
+
+  <script>
+    document.getElementById('employee_code').addEventListener('input', async (e) => {
+        const pin = e.target.value;
+        if (pin.length === 4) {
+            try {
+                const res = await fetch(`/api/employee/${pin}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('name').value = data.name;
+                    document.getElementById('department').value = data.department;
+                } else {
+                    document.getElementById('name').value = 'Invalid Account ID';
+                    document.getElementById('department').value = 'Invalid Account ID';
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        } else {
+            document.getElementById('name').value = '';
+            document.getElementById('department').value = '';
+        }
+    });
+  </script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+    const dropZone  = document.getElementById('dropZone');
+    const fileInput = document.getElementById('document');
+    const fileList  = document.getElementById('fileList');
+
+    // ── Drag visual feedback ──────────────────────────────────────────────────
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.style.background = '#d6e9dd';
+      dropZone.style.borderColor = 'var(--accent-dark)';
+    });
+    ['dragleave', 'dragend'].forEach(ev => {
+      dropZone.addEventListener(ev, () => {
+        dropZone.style.background = 'var(--accent-soft)';
+        dropZone.style.borderColor = 'var(--accent)';
+      });
+    });
+
+    // ── Drop handler ──────────────────────────────────────────────────────────
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.style.background = 'var(--accent-soft)';
+      dropZone.style.borderColor = 'var(--accent)';
+
+      const dt = e.dataTransfer;
+      // Merge dropped files with already-selected files
+      const existing = fileInput.files ? Array.from(fileInput.files) : [];
+      const dropped  = Array.from(dt.files).filter(f => f.type === 'application/pdf');
+      setFiles([...existing, ...dropped]);
+    });
+
+    // ── File-input change ─────────────────────────────────────────────────────
+    fileInput.addEventListener('change', () => {
+      setFiles(Array.from(fileInput.files));
+    });
+
+    // ── Shared helper: update DataTransfer, list, and page count ─────────────
+    async function setFiles(files) {
+      // Build a new FileList via DataTransfer
+      const dt = new DataTransfer();
+      files.forEach(f => dt.items.add(f));
+      fileInput.files = dt.files;
+
+      // Render file chips
+      fileList.innerHTML = '';
+      files.forEach((f, idx) => {
+        const li = document.createElement('li');
+        li.className = 'file-chip';
+        li.innerHTML = `📄 ${f.name}
+          <button type="button" data-idx="${idx}" title="Remove">✕</button>`;
+        li.querySelector('button').addEventListener('click', (e) => {
+          e.stopPropagation();
+          const updated = Array.from(fileInput.files);
+          updated.splice(Number(e.target.dataset.idx), 1);
+          setFiles(updated);
+        });
+        fileList.appendChild(li);
+      });
+
+      // Count pages
+      let totalPages = 0;
+      for (const file of files) {
+        if (file.type === 'application/pdf') {
+          try {
+            const buf = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(new Uint8Array(buf)).promise;
+            totalPages += pdf.numPages;
+          } catch {
+            totalPages += 1;
+          }
+        } else {
+          totalPages += 1;
+        }
+      }
+      document.getElementById('pages').value = totalPages || '';
+
+      // Update drop-zone hint text
+      const hint = dropZone.querySelector('.dz-hint');
+      if (files.length > 0) {
+        dropZone.querySelector('.dz-icon').textContent = '✅';
+        dropZone.querySelector('.dz-title').textContent = `${files.length} file(s) selected`;
+        hint.textContent = 'Drop more or click to add';
+      } else {
+        dropZone.querySelector('.dz-icon').textContent = '📄';
+        dropZone.querySelector('.dz-title').innerHTML = 'Drag &amp; drop PDFs here';
+        hint.innerHTML = 'or <span style="text-decoration:underline">click to browse</span>';
+      }
+    }
+  </script>
+{% endblock %}

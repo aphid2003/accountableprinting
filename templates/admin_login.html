@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Admin login{% endblock %}
+{% block bodyclass %}admin-theme{% endblock %}
+{% block nav %}
+  <a href="{{ url_for('employee_form') }}">Employee form</a>
+{% endblock %}
+{% block content %}
+  <div class="login-wrap">
+    <div class="login-panel">
+      <div class="login-panel-inner">
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Ronald's logo" class="login-logo">
+        <div class="eyebrow" style="color: var(--brass);">Admin console</div>
+        <h1 style="color: #fff;">The full paper trail,<br>at a glance.</h1>
+        <p class="login-panel-copy">Review every logged print job, spot patterns by department, and manage who's allowed to print — all in one ledger.</p>
+        <ul class="login-feature-list">
+          <li>Live, filterable activity log</li>
+          <li>Totals by employee &amp; department</li>
+          <li>One-click CSV &amp; PDF exports</li>
+        </ul>
+      </div>
+    </div>
+    <div class="login-form-side">
+      <div class="login-form-card">
+        <div class="eyebrow">Sign in</div>
+        <h2 style="margin-top:0;">Admin login</h2>
+        <p class="lead" style="margin-bottom: 22px;">Sign in to review print requests and manage employees.</p>
+        <form method="POST">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" required autofocus>
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required>
+          <div style="margin-top: 24px;">
+            <button type="submit" style="width: 100%;">Log in →</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .login-wrap {
+      display: grid;
+      grid-template-columns: 1.05fr 1fr;
+      min-height: 520px;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-lift);
+      border: 1px solid var(--line);
+    }
+    .login-panel {
+      background:
+        radial-gradient(circle at 85% 15%, rgba(169,129,63,0.35), transparent 45%),
+        linear-gradient(160deg, var(--accent-dark) 0%, var(--accent) 65%, #26533c 100%);
+      color: #fff;
+      padding: 48px 42px;
+      display: flex;
+      align-items: flex-end;
+    }
+    .login-panel-inner { max-width: 380px; }
+    .login-logo {
+      height: 44px;
+      margin-bottom: 28px;
+      filter: brightness(0) invert(1);
+      opacity: 0.92;
+    }
+    .login-panel h1 {
+      font-size: 27px;
+      line-height: 1.22;
+      margin-bottom: 14px;
+    }
+    .login-panel-copy {
+      color: rgba(255,255,255,0.78);
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 0 0 20px;
+    }
+    .login-feature-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .login-feature-list li {
+      font-size: 13px;
+      color: rgba(255,255,255,0.92);
+      padding-left: 20px;
+      position: relative;
+    }
+    .login-feature-list li::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 6px;
+      width: 8px; height: 2px;
+      background: var(--brass);
+    }
+    .login-form-side {
+      background: var(--card);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+    .login-form-card { width: 100%; max-width: 320px; }
+
+    @media (max-width: 760px) {
+      .login-wrap { grid-template-columns: 1fr; min-height: 0; }
+      .login-panel { padding: 34px 28px; }
+      .login-panel h1 { font-size: 22px; }
+      .login-form-side { padding: 30px 22px; }
+    }
+  </style>
+{% endblock %}

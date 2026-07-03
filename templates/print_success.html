@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Print Success{% endblock %}
+{% block nav %}
+  <a href="{{ url_for('employee_form') }}">Back to form</a>
+{% endblock %}
+{% block content %}
+<div class="success-wrap">
+  <div class="card success-card">
+
+    {# Beautiful animated check icon #}
+    <div class="success-icon">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="success-check">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    </div>
+
+    <div class="eyebrow">Logged</div>
+    <h1 style="color: var(--accent-dark);">Print job sent!</h1>
+    <p class="success-sub">Your papers are ready for collection at the printer.</p>
+
+    {# Job specifications list #}
+    <div class="spec-list">
+      <div class="spec-row">
+        <span class="spec-label">Employee</span>
+        <span class="spec-value">{{ log_entry.name }}</span>
+      </div>
+      <div class="spec-row">
+        <span class="spec-label">Department</span>
+        <span class="spec-value">{{ log_entry.department }}</span>
+      </div>
+      {% if log_entry.client %}
+      <div class="spec-row">
+        <span class="spec-label">Client</span>
+        <span class="spec-value">{{ log_entry.client }}</span>
+      </div>
+      {% endif %}
+      {% if log_entry.purpose %}
+      <div class="spec-row">
+        <span class="spec-label">Purpose</span>
+        <span class="spec-value">{{ log_entry.purpose }}</span>
+      </div>
+      {% endif %}
+      <div class="spec-row" style="border-bottom: none;">
+        <span class="spec-label">Total pages</span>
+        <span class="spec-value mono spec-pages">{{ log_entry.pages }} pages</span>
+      </div>
+    </div>
+
+    <div class="warn-box">
+      <strong>⚠️ Papers didn't print?</strong><br>
+      Ensure the Printer Account ID <strong class="mono">{{ log_entry.employee_code }}</strong> is registered on the physical printer's Job Accounting settings. If the printer doesn't recognize this code, it will reject and delete the job automatically.
+    </div>
+
+    {# Done button #}
+    <a href="{{ url_for('employee_form') }}" style="width: 100%; text-decoration: none;">
+      <button type="button" style="width: 100%; padding: 13px; font-size: 15px;">
+        Done &amp; start over
+      </button>
+    </a>
+  </div>
+</div>
+
+<style>
+  .success-wrap { max-width: 480px; margin: 20px auto 0; text-align: center; }
+  .success-card {
+    padding: 40px 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: var(--shadow-lift);
+  }
+  .success-icon {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: linear-gradient(160deg, var(--accent-soft), #d9ecdf);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 18px;
+    animation: scaleUp 0.4s ease-out;
+    box-shadow: 0 0 0 6px var(--accent-soft);
+  }
+  .success-check { animation: drawCheck 0.5s 0.3s ease-out both; }
+  .success-card h1 { font-size: 25px; margin-bottom: 6px; }
+  .success-sub { font-size: 14.5px; color: var(--ink-soft); margin: 0 0 26px; line-height: 1.5; }
+
+  .spec-list {
+    width: 100%;
+    border-top: 1px solid var(--line);
+    padding: 16px 0 4px;
+    margin-bottom: 26px;
+    text-align: left;
+  }
+  .spec-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--line);
+  }
+  .spec-label { color: var(--ink-soft); font-size: 13px; }
+  .spec-value { font-weight: 600; font-size: 13.5px; color: var(--ink); text-align: right; max-width: 60%; }
+  .spec-pages { color: var(--accent-dark); font-size: 14.5px; }
+
+  .warn-box {
+    background-color: var(--warn-soft);
+    border-left: 3px solid var(--warn);
+    padding: 12px 15px;
+    border-radius: 6px;
+    margin-bottom: 24px;
+    font-size: 13px;
+    text-align: left;
+    line-height: 1.5;
+    color: var(--ink);
+    width: 100%;
+  }
+
+  @keyframes scaleUp {
+    0% { transform: scale(0); }
+    100% { transform: scale(1); }
+  }
+  @keyframes drawCheck {
+    0% { stroke-dasharray: 50; stroke-dashoffset: 50; }
+    100% { stroke-dasharray: 50; stroke-dashoffset: 0; }
+  }
+</style>
+{% endblock %}
