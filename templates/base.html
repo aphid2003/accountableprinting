@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Print Accountability{% endblock %}</title>
+<link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+<link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='img/favicon-16.png') }}">
+<link rel="apple-touch-icon" sizes="192x192" href="{{ url_for('static', filename='img/favicon-192.png') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* ── Color: deep ledger green + brass, on warm paper ── */
+    --ink:        #182620;
+    --ink-soft:   #5c6b62;
+    --ink-faint:  #93a19a;
+    --paper:      #f6f4ee;
+    --card:       #ffffff;
+    --line:       #e4e0d3;
+    --line-soft:  #edeadf;
+    --accent:     #1f5c40;
+    --accent-dark:#123a28;
+    --accent-soft:#e8f1ea;
+    --brass:      #a9813f;
+    --brass-soft: #f4ead4;
+    --warn:       #b1441c;
+    --warn-soft:  #fbeae2;
+    --radius:     14px;
+    --radius-sm:  9px;
+    --shadow-card:  0 1px 2px rgba(24,38,32,0.04), 0 8px 24px -12px rgba(24,38,32,0.10);
+    --shadow-lift:  0 4px 10px -2px rgba(24,38,32,0.14), 0 14px 34px -14px rgba(24,38,32,0.20);
+  }
+
+  /* ── Admin section only: theme pulled straight from the logo (navy + gold) ── */
+  body.admin-theme {
+    --accent:      #002858;
+    --accent-dark: #00173a;
+    --accent-soft: #e6ecf4;
+    --brass:       #f0781e;
+    --brass-soft:  #fdeadb;
+  }
+  body.admin-theme .login-panel {
+    background:
+      radial-gradient(circle at 85% 15%, rgba(240,120,30,0.35), transparent 45%),
+      linear-gradient(160deg, var(--accent-dark) 0%, var(--accent) 65%, #001225 100%);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    margin: 0;
+    font-family: "Inter", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--paper);
+    background-image:
+      radial-gradient(circle at 100% 0%, rgba(31,92,64,0.05), transparent 45%),
+      radial-gradient(circle at 0% 100%, rgba(169,129,63,0.05), transparent 40%);
+    background-attachment: fixed;
+    color: var(--ink);
+    line-height: 1.5;
+    font-size: 15px;
+  }
+
+  /* ── Ledger heading rule: the signature motif — a hairline gold rule
+     paired with a heavier green rule, echoing a printed ledger sheet ── */
+  .ledger-rule {
+    height: 4px;
+    width: 46px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--accent) 0 65%, var(--brass) 65% 100%);
+    margin: 0 0 14px;
+  }
+
+  #update-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    background: linear-gradient(90deg, var(--accent-dark), var(--accent));
+    color: #fff;
+    font-size: 13.5px;
+    padding: 9px 16px;
+    flex-wrap: wrap;
+  }
+  #update-banner button {
+    background: rgba(255,255,255,0.16);
+    border: 1px solid rgba(255,255,255,0.4);
+    color: #fff;
+    padding: 5px 14px;
+    font-size: 12.5px;
+    border-radius: 7px;
+    cursor: pointer;
+  }
+  #update-banner button:hover { background: rgba(255,255,255,0.28); }
+  #update-banner button:disabled { opacity: 0.6; cursor: default; }
+
+  header {
+    padding: 0 32px;
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+    position: relative;
+  }
+  header::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: -1px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent) 0%, var(--brass) 100%);
+    opacity: 0.55;
+  }
+  .header-inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 0;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: var(--ink);
+  }
+  header .brand img { height: 42px; display: block; }
+  header .brand .brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+  }
+  header .brand .brand-name {
+    font-family: "Fraunces", serif;
+    font-weight: 600;
+    font-size: 19px;
+    letter-spacing: -0.01em;
+  }
+  header .brand .brand-tag {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--brass);
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+    margin-top: 1px;
+  }
+  .background-logo {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    width: 280px;
+    height: 280px;
+    background-image: url("{{ url_for('static', filename='img/logo.png') }}");
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: bottom left;
+    opacity: 0.04;
+    pointer-events: none;
+    z-index: -10;
+  }
+  header nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  header nav a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 7px 12px;
+    border-radius: 7px;
+    transition: background 0.15s ease, color 0.15s ease;
+    white-space: nowrap;
+  }
+  header nav a:hover { color: var(--accent); background: var(--accent-soft); }
+
+  main {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 40px 24px 72px;
+  }
+  main.narrow { max-width: 880px; }
+
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--brass);
+    margin: 0 0 8px;
+  }
+  h1 {
+    font-family: "Fraunces", serif;
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+    color: var(--ink);
+  }
+  h2 {
+    font-family: "Fraunces", serif;
+    font-size: 19px;
+    font-weight: 600;
+    margin: 40px 0 4px;
+    color: var(--ink);
+  }
+  h2 + .ledger-rule { margin-top: 8px; margin-bottom: 16px; }
+  h3 { font-size: 15px; font-weight: 600; margin: 0 0 12px; color: var(--ink); }
+  p.lead { color: var(--ink-soft); margin: 0 0 30px; font-size: 14.5px; max-width: 60ch; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 26px;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* ── Stat cards (dashboard summary strip) ── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 14px;
+    margin-bottom: 34px;
+  }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 18px 20px;
+    box-shadow: var(--shadow-card);
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--accent), var(--brass));
+  }
+  .stat-card .stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  .stat-card .stat-value {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+  }
+  .stat-card .stat-sub { font-size: 12px; color: var(--ink-faint); margin-top: 4px; }
+
+  label {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 600;
+    margin: 18px 0 6px;
+    color: var(--ink);
+    letter-spacing: 0.01em;
+  }
+  label:first-of-type { margin-top: 0; }
+  input, select, textarea {
+    width: 100%;
+    padding: 10px 13px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-family: inherit;
+    background: var(--paper);
+    color: var(--ink);
+    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--card);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  input[readonly] { background: var(--line-soft); color: var(--ink-soft); }
+  textarea { resize: vertical; min-height: 78px; }
+
+  button, .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-size: 13.5px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+    box-shadow: 0 1px 2px rgba(18,58,40,0.12);
+  }
+  button:hover, .btn:hover { background: var(--accent-dark); transform: translateY(-1px); box-shadow: var(--shadow-lift); }
+  button:active, .btn:active { transform: translateY(0); }
+  button.secondary, .btn.secondary {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    box-shadow: none;
+  }
+  button.secondary:hover, .btn.secondary:hover { background: var(--line-soft); color: var(--ink); box-shadow: none; }
+  button.danger, .btn.danger { background: var(--warn); box-shadow: 0 1px 2px rgba(177,68,28,0.18); }
+  button.danger:hover, .btn.danger:hover { background: #8f3616; }
+
+  .flash {
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    margin-bottom: 20px;
+    border: 1px solid transparent;
+    font-weight: 500;
+  }
+  .flash.success { background: var(--accent-soft); color: var(--accent-dark); border-color: #cfe4d8; }
+  .flash.error { background: var(--warn-soft); color: var(--warn); border-color: #f1d3c4; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  @media (min-width: 768px) {
+    table { display: table; white-space: normal; }
+  }
+  th, td {
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  th {
+    color: var(--ink-soft);
+    font-weight: 600;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    border-bottom: 2px solid var(--line);
+  }
+  tbody tr { transition: background 0.12s ease; }
+  tbody tr:hover { background: var(--line-soft); }
+  tr:last-child td { border-bottom: none; }
+  td.num, .mono { font-family: "IBM Plex Mono", monospace; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .badge::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .badge.pending { background: #fbf3d9; color: #8a6a10; }
+  .badge.approved { background: var(--accent-soft); color: var(--accent); }
+  .badge.rejected { background: var(--warn-soft); color: var(--warn); }
+  .badge.banned { background: var(--warn-soft); color: var(--warn); }
+  .badge.active { background: var(--accent-soft); color: var(--accent); }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: 20px; }
+  .tabs a {
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+    background: var(--card);
+  }
+  .tabs a.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .empty {
+    color: var(--ink-faint);
+    font-size: 13.5px;
+    padding: 32px 24px;
+    text-align: center;
+  }
+  form.inline { display: inline; }
+  .row-actions { display: flex; gap: 6px; }
+  .row-actions button { padding: 6px 12px; font-size: 12.5px; }
+  @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
+  .clickable-name:hover {
+    color: var(--accent) !important;
+    text-decoration: underline !important;
+    opacity: 0.85;
+  }
+
+  ::selection { background: var(--accent-soft); color: var(--accent-dark); }
+
+  /* ── Responsive ── */
+  @media (max-width: 650px) {
+    header { padding: 0 16px; }
+    .header-inner { padding: 12px 0; }
+    main { padding: 24px 14px 56px; }
+    .card { padding: 17px; }
+    h1 { font-size: 24px; }
+    header .brand .brand-name { font-size: 16px; }
+  }
+</style>
+</head>
+<body class="{% block bodyclass %}{% endblock %}">
+<div class="background-logo"></div>
+<div id="update-banner" style="display:none;">
+  <span id="update-banner-text"></span>
+  <button type="button" id="update-banner-btn" onclick="startAppUpdate()">Update now</button>
+</div>
+<header>
+  <div class="header-inner">
+    <a class="brand" href="{{ url_for('employee_form') }}">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Ronald's logo">
+      <span class="brand-text">
+        <span class="brand-name">Ronald's</span>
+        <span class="brand-tag">Print Accountability</span>
+      </span>
+    </a>
+    <nav>
+      <a href="#" id="networkScanBtn">🔍 Scan network</a>
+      {% block nav %}{% endblock %}
+    </nav>
+  </div>
+</header>
+<main class="{% block main_class %}{% endblock %}">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+
+  <!-- Network Modal -->
+  <div id="networkModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(18,26,22,0.55); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+    <div style="background: var(--card); padding: 30px; border-radius: var(--radius); width: 540px; max-width: 90%; box-shadow: var(--shadow-lift); border: 1px solid var(--line);">
+      <h2 style="margin-top: 0; font-size: 20px;">Network &amp; Printers Diagnostic</h2>
+      <div class="ledger-rule"></div>
+      
+      <!-- Network Section -->
+      <div id="networkStatus" style="margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 10px; color: var(--ink-soft); font-size: 14px;">
+          Scanning network connection... <span style="display:inline-block; animation: pulse 1s infinite;">...</span>
+        </div>
+      </div>
+      
+      <!-- Printers Section -->
+      <div id="printerStatus" style="margin-bottom: 25px;">
+        <div style="color: var(--ink-soft); font-size: 14px;">Looking for system printers...</div>
+      </div>
+      
+      <button id="closeNetworkModal" class="btn secondary" style="width: 100%;">Close Diagnostic</button>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('networkScanBtn').addEventListener('click', async (e) => {
+      e.preventDefault();
+      const modal = document.getElementById('networkModal');
+      const netStatus = document.getElementById('networkStatus');
+      const printStatus = document.getElementById('printerStatus');
+      
+      modal.style.display = 'flex';
+      netStatus.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px; color: var(--ink-soft); font-size: 14.5px;">
+          <span style="font-size: 18px; animation: pulse 1s infinite;">🔍</span>
+          <span>Scanning network connection and gateway...</span>
+        </div>
+      `;
+      printStatus.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px; color: var(--ink-soft); font-size: 14.5px; margin-top: 10px;">
+          <span style="font-size: 18px; animation: pulse 1s infinite;">🖨️</span>
+          <span>Pinging printers and resolving configurations...</span>
+        </div>
+      `;
+      
+      try {
+        const res = await fetch('/api/network_scan');
+        const data = await res.json();
+        
+        // 1. Render Network Status
+        let netHtml = '';
+        if (data.network.network_fine) {
+          netHtml = `
+            <div style="display: flex; align-items: center; gap: 12px; background: var(--accent-soft); padding: 14px 16px; border-radius: var(--radius-sm); border: 1px solid #cfe4d8; margin-bottom: 20px;">
+              <span style="font-size: 22px;">✅</span>
+              <div>
+                <strong style="color: var(--accent-dark); font-size: 14.5px;">Your network is fine</strong>
+                <div style="font-size: 12px; color: var(--ink-soft); margin-top: 2px; line-height: 1.4;">
+                  Hostname: <strong>${data.network.hostname}</strong> &bull; IP: <strong>${data.network.ip}</strong>
+                  ${data.network.internet_fine ? ' &bull; Internet: <span style="color: var(--accent); font-weight: 600;">Accessible</span>' : ''}
+                </div>
+              </div>
+            </div>
+          `;
+        } else {
+          netHtml = `
+            <div style="display: flex; align-items: center; gap: 12px; background: var(--warn-soft); padding: 14px 16px; border-radius: var(--radius-sm); border: 1px solid #f1d3c4; margin-bottom: 20px;">
+              <span style="font-size: 22px;">⚠️</span>
+              <div>
+                <strong style="color: var(--warn); font-size: 14.5px;">Limited local connection</strong>
+                <div style="font-size: 12px; color: var(--ink-soft); margin-top: 2px; line-height: 1.4;">
+                  Hostname: <strong>${data.network.hostname}</strong> &bull; IP: <strong>${data.network.ip}</strong> (Local loopback/APIPA)
+                </div>
+              </div>
+            </div>
+          `;
+        }
+        netStatus.innerHTML = netHtml;
+        
+        // 2. Render Printers Status
+        let printHtml = '';
+        if (data.printers && data.printers.length > 0) {
+          printHtml = `
+            <div style="font-weight: 600; font-size: 12px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px;">
+              Printers Found &amp; Polled
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; max-height: 250px; overflow-y: auto; padding-right: 4px;">
+          `;
+          
+          data.printers.forEach(p => {
+            let badgeClass = 'pending';
+            let badgeText = 'Local';
+            if (p.status === 'online') {
+              badgeClass = 'approved';
+              badgeText = `Online (${p.latency_ms}ms)`;
+            } else if (p.status === 'offline') {
+              badgeClass = 'rejected';
+              badgeText = 'Offline';
+            }
+            
+            const sourceBadge = p.source === 'configured' 
+              ? `<span style="font-size: 10px; background: var(--brass-soft); color: var(--brass); padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em;">Configured IP</span>`
+              : `<span style="font-size: 10px; background: var(--line-soft); color: var(--ink-soft); padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em;">System</span>`;
+              
+            printHtml += `
+              <div style="background: var(--card); border: 1px solid var(--line); padding: 12px 14px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <strong style="color: var(--ink); font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;" title="${p.name}">${p.name}</strong>
+                    ${sourceBadge}
+                  </div>
+                  <div style="font-size: 11.5px; color: var(--ink-soft); word-break: break-all;">
+                    ${p.ip ? `${p.ip}:${p.port}` : 'Local Port'} &bull; <span style="font-size: 11.5px; color: var(--ink-faint);">${p.details}</span>
+                  </div>
+                </div>
+                <div style="flex-shrink: 0;">
+                  <span class="badge ${badgeClass}">${badgeText}</span>
+                </div>
+              </div>
+            `;
+          });
+          
+          printHtml += `</div>`;
+        } else {
+          printHtml = `
+            <div style="text-align: center; padding: 20px 0; color: var(--ink-soft); font-size: 14px;">
+              <span style="font-size: 24px; display: block; margin-bottom: 8px;">🖨️</span>
+              No system printers or configured printer IPs found.
+            </div>
+          `;
+        }
+        printStatus.innerHTML = printHtml;
+      } catch (err) {
+        netStatus.innerHTML = `
+          <div style="background: var(--warn-soft); color: var(--warn); padding: 12px; border-radius: var(--radius-sm); border: 1px solid #f1d3c4; font-size: 13.5px;">
+            <strong>Error:</strong> Failed to scan network.
+          </div>
+        `;
+        printStatus.innerHTML = '';
+      }
+    });
+
+    document.getElementById('closeNetworkModal').addEventListener('click', () => {
+      document.getElementById('networkModal').style.display = 'none';
+    });
+
+    // ---- Auto-update check (GitHub Releases) ----
+    let _updateInfo = null;
+
+    async function checkAppUpdate() {
+      // Only check once per app session, not on every page navigation.
+      if (sessionStorage.getItem('update_checked')) return;
+      try {
+        const res = await fetch('/api/check_update');
+        const data = await res.json();
+        sessionStorage.setItem('update_checked', '1');
+        if (data.update_available) {
+          _updateInfo = data;
+          document.getElementById('update-banner-text').textContent =
+            `A new version (v${data.latest_version}) is available — you're on v${data.current_version}.`;
+          document.getElementById('update-banner').style.display = 'flex';
+        }
+      } catch (e) {
+        // Offline or check failed — fail silently, never block the app.
+      }
+    }
+
+    async function startAppUpdate() {
+      if (!_updateInfo || !_updateInfo.download_url) return;
+      const btn = document.getElementById('update-banner-btn');
+      const text = document.getElementById('update-banner-text');
+      btn.disabled = true;
+      btn.textContent = 'Downloading…';
+      try {
+        const res = await fetch('/api/install_update', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({download_url: _updateInfo.download_url})
+        });
+        const data = await res.json();
+        if (data.success) {
+          text.textContent = 'Update downloaded. The app will restart in a moment…';
+          btn.style.display = 'none';
+        } else {
+          btn.disabled = false;
+          btn.textContent = 'Update now';
+          text.textContent = 'Update failed — check your connection and try again.';
+        }
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'Update now';
+        text.textContent = 'Update failed — check your connection and try again.';
+      }
+    }
+
+    checkAppUpdate();
+  </script>
+</main>
+</body>
+</html>

@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}Select Printer{% endblock %}
+{% block nav %}
+  <a href="{{ url_for('employee_form') }}">Back to form</a>
+{% endblock %}
+{% block content %}
+  <div class="eyebrow">Step 2 of 2</div>
+  <h1>Select a printer</h1>
+  <p class="lead">Choose a printer from the network to send your document to.</p>
+
+  <div class="printer-layout">
+    <div class="card printer-card">
+      <form method="POST">
+        <label for="printer">Available printers</label>
+        {% if printers %}
+          <select id="printer" name="printer" required>
+            <option value="" disabled selected>Select a printer</option>
+            {% for printer in printers %}
+              <option value="{{ printer }}">{{ printer }}</option>
+            {% endfor %}
+          </select>
+
+          <label for="page_range">Page range (optional)</label>
+          <input type="text" id="page_range" name="page_range" placeholder="e.g. 1-5, 8, 11-13">
+
+          <div class="settings-grid">
+            <div>
+              <label for="copies">Copies</label>
+              <input type="number" id="copies" name="copies" min="1" max="99" value="1">
+            </div>
+            <div>
+              <label for="duplex">Sided</label>
+              <select id="duplex" name="duplex">
+                <option value="simplex" selected>Single-sided</option>
+                <option value="duplex_long">Double-sided (flip on long edge)</option>
+                <option value="duplex_short">Double-sided (flip on short edge)</option>
+              </select>
+            </div>
+            <div>
+              <label for="color_mode">Color</label>
+              <select id="color_mode" name="color_mode">
+                <option value="color" selected>Color</option>
+                <option value="grayscale">Black &amp; white</option>
+              </select>
+            </div>
+            <div>
+              <label for="orientation">Orientation</label>
+              <select id="orientation" name="orientation">
+                <option value="portrait" selected>Portrait</option>
+                <option value="landscape">Landscape</option>
+              </select>
+            </div>
+            <div>
+              <label for="paper_size">Paper size</label>
+              <select id="paper_size" name="paper_size">
+                <option value="a4" selected>A4</option>
+                <option value="letter">Letter</option>
+                <option value="legal">Legal</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="hint-box">
+            🔑 Your <strong>Printer Account ID</strong> (<span class="mono">{{ log_entry.employee_code }}</span>) will be sent automatically.
+          </div>
+
+          <div style="margin-top: 22px;">
+            <button type="submit" style="width: 100%;">Print document →</button>
+          </div>
+        {% else %}
+          <p style="color: var(--warn); padding: 10px 0;">No printers found on the network.</p>
+          <div style="margin-top: 22px;">
+            <a href="{{ url_for('employee_form') }}"><button type="button">Go back</button></a>
+          </div>
+        {% endif %}
+      </form>
+    </div>
+
+    <div class="card preview-card">
+      <h3>Document preview</h3>
+
+      <div class="tip-box">
+        <strong>💡 Need to print via the standard print dialog?</strong><br>
+        If you need to print using a custom layout or system preferences, click the <strong>"Print via System Dialog"</strong> button below the document preview.
+      </div>
+
+      {% if log_entry.file_name %}
+        {% set filenames = log_entry.file_name.split(',') %}
+        <div class="doc-list">
+          {% for filename in filenames %}
+            {% if filename %}
+              <div class="doc-item">
+                <h4>{{ filename.split('_', 1)[-1] }}</h4>
+                <iframe class="doc-preview" id="preview-{{ loop.index }}" data-basesrc="{{ url_for('preview_file', filename=filename) }}" src="{{ url_for('preview_file', filename=filename) }}"></iframe>
+                <div class="doc-actions">
+                  <button type="button" onclick="printIframe('preview-{{ loop.index }}')" class="print-dialog-btn">
+                    🖨️ Print via System Dialog
+                  </button>
+                  <a href="{{ url_for('finish_print', log_id=log_entry.id) }}" style="text-decoration: none;">
+                    <button type="button" class="secondary">Done &amp; return to form</button>
+                  </a>
+                </div>
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% else %}
+        <p style="color: var(--ink-soft);">No documents to preview.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <style>
+    .printer-layout {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .printer-card { flex: 1 1 280px; min-width: 0; }
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 10px;
+      margin-top: 14px;
+    }
+    .settings-grid label { font-size: 12.5px; margin-bottom: 4px; }
+    .settings-grid input, .settings-grid select { width: 100%; }
+    .preview-card { flex: 2 1 280px; min-width: 0; display: flex; flex-direction: column; }
+    .hint-box {
+      margin-top: 15px;
+      font-size: 13.5px;
+      color: var(--accent-dark);
+      background: var(--accent-soft);
+      padding: 10px 13px;
+      border-radius: var(--radius-sm);
+    }
+    .tip-box {
+      background-color: var(--brass-soft);
+      border-left: 3px solid var(--brass);
+      padding: 11px 15px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      font-size: 13.5px;
+      line-height: 1.5;
+    }
+    .doc-list { display: flex; flex-direction: column; gap: 15px; overflow-y: auto; max-height: 700px; }
+    .doc-item { border: 1px solid var(--line); padding: 14px; border-radius: var(--radius-sm); background: var(--paper); }
+    .doc-item h4 { margin-top: 0; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+    .doc-preview { width: 100%; height: 500px; border: 1px solid var(--line); border-radius: 8px; }
+    .doc-actions {
+      margin-top: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .print-dialog-btn {
+      background-color: var(--accent);
+      color: white;
+    }
+  </style>
+
+  <script>
+    function printIframe(iframeId) {
+      const iframe = document.getElementById(iframeId);
+      if (!iframe) return;
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (e) {
+        // Fallback in case of sandboxing or edge case issues
+        window.open(iframe.src, '_blank').print();
+      }
+    }
+
+    let debounceTimer;
+    const rangeInput = document.getElementById('page_range');
+    const iframes = document.querySelectorAll('iframe.doc-preview');
+
+    if (rangeInput) {
+      rangeInput.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          const rangeVal = rangeInput.value.trim();
+          iframes.forEach(iframe => {
+            const baseSrc = iframe.getAttribute('data-basesrc');
+            if (rangeVal) {
+              iframe.src = baseSrc + "?range=" + encodeURIComponent(rangeVal);
+            } else {
+              iframe.src = baseSrc;
+            }
+          });
+        }, 600); // Wait for user to stop typing
+      });
+    }
+  </script>
+{% endblock %}

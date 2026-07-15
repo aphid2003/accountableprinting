@@ -1,0 +1,620 @@
+{% extends "base.html" %}
+{% block title %}Admin dashboard{% endblock %}
+{% block bodyclass %}admin-theme{% endblock %}
+{% block nav %}
+{# Build a URL that passes current filters + sort to the CSV export #}
+{% set csv_url = url_for('export_report', department=department_filter, days=days, sort_by=sort_by, sort_dir=sort_dir, log_search=log_search) %}
+<a href="{{ csv_url }}">⬇ Export CSV</a>
+<a href="{{ url_for('export_pins_pdf') }}">⬇ Account IDs PDF</a>
+<a href="{{ url_for('export_monthly_report_pdf', start_month=start_month, end_month=end_month) }}">⬇ Monthly report PDF</a>
+<a href="{{ url_for('admin_logout') }}">Log out</a>
+{% endblock %}
+{% block content %}
+<div class="eyebrow">Admin console</div>
+<h1>Print activity log</h1>
+<p class="lead">Every print job employees have logged, with who, what, and why.</p>
+
+{# ── Summary stat strip ── #}
+{% set ns_stat = namespace(total_pages=0) %}
+{% for r in logs %}{% set ns_stat.total_pages = ns_stat.total_pages + (r.pages or 0) %}{% endfor %}
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-label">Jobs in view</div>
+    <div class="stat-value">{{ logs|length }}</div>
+    <div class="stat-sub">matching current filters</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Pages in view</div>
+    <div class="stat-value">{{ ns_stat.total_pages }}</div>
+    <div class="stat-sub">across {{ logs|length }} job(s)</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Employees</div>
+    <div class="stat-value">{{ employees|length }}</div>
+    <div class="stat-sub">registered in the system</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Departments</div>
+    <div class="stat-value">{{ departments|length }}</div>
+    <div class="stat-sub">tracked in the ledger</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">App version</div>
+    <div class="stat-value mono" style="font-size: 20px;">v{{ app_version }}</div>
+    {% if last_update %}
+    <div class="stat-sub">updated {{ last_update.updated_at[:16].replace('T',' ') }} (from v{{ last_update.from_version }})</div>
+    {% else %}
+    <div class="stat-sub">no updates recorded yet on this machine</div>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Filters ── #}
+<form method="GET" action="{{ url_for('admin_dashboard') }}"
+  id="filter-form" class="filter-row">
+  {# preserve sort + employee search when filter changes #}
+  <input type="hidden" name="sort_by"    value="{{ sort_by }}">
+  <input type="hidden" name="sort_dir"   value="{{ sort_dir }}">
+  <input type="hidden" name="log_search" value="{{ log_search }}">
+
+  <select name="department" onchange="this.form.submit()" class="pill-select">
+    <option value="all" {{ 'selected' if department_filter=='all' }}>All departments</option>
+    {% for d in departments %}
+    <option value="{{ d }}" {{ 'selected' if department_filter==d }}>{{ d }}</option>
+    {% endfor %}
+  </select>
+  <select name="days" onchange="this.form.submit()" class="pill-select">
+    <option value="7"  {{ 'selected' if days=='7'  }}>Last 7 days</option>
+    <option value="30" {{ 'selected' if days=='30' }}>Last 30 days</option>
+    <option value="90" {{ 'selected' if days=='90' }}>Last 90 days</option>
+    <option value="0"  {{ 'selected' if days=='0'  }}>All time</option>
+  </select>
+</form>
+
+{# ── Employee search box ── #}
+<form method="GET" action="{{ url_for('admin_dashboard') }}" id="log-search-form"
+  class="filter-row">
+  {# preserve all other state #}
+  <input type="hidden" name="department" value="{{ department_filter }}">
+  <input type="hidden" name="days"       value="{{ days }}">
+  <input type="hidden" name="sort_by"    value="{{ sort_by }}">
+  <input type="hidden" name="sort_dir"   value="{{ sort_dir }}">
+
+  <datalist id="employee-names">
+    {% for name in log_name_suggestions %}
+    <option value="{{ name }}"></option>
+    {% endfor %}
+  </datalist>
+
+  <input type="text" id="log-search-input" name="log_search"
+    value="{{ log_search }}"
+    list="employee-names"
+    placeholder="🔍 Search by employee name…"
+    autocomplete="off"
+    class="search-input">
+  <button type="submit" class="btn-sm">Search</button>
+  {% if log_search %}
+  <a href="{{ url_for('admin_dashboard', department=department_filter, days=days, sort_by=sort_by, sort_dir=sort_dir) }}"
+     class="clear-link">✕ Clear</a>
+  {% endif %}
+</form>
+
+{# ── Log table ── #}
+<div class="card">
+  {% if logs %}
+  <table>
+    <tr>
+      {% set cols = [
+          ('date',       'Date'),
+          ('employee',   'Employee'),
+          ('department', 'Dept'),
+          ('client',     'Client'),
+          ('purpose',    'Purpose'),
+          ('pages',      'Pages'),
+      ] %}
+      {% for key, label in cols %}
+        {% if sort_by == key %}
+          {% set next_dir = 'asc' if sort_dir == 'desc' else 'desc' %}
+          {% set arrow = '▼' if sort_dir == 'desc' else '▲' %}
+        {% else %}
+          {% set next_dir = 'desc' %}
+          {% set arrow = '' %}
+        {% endif %}
+        <th>
+          <a href="{{ url_for('admin_dashboard', department=department_filter, days=days, sort_by=key, sort_dir=next_dir, log_search=log_search) }}"
+             class="sort-link">
+            {{ label }}
+            <span style="opacity: {{ '1' if sort_by == key else '0.3' }}; font-size: 11px;">{{ arrow if sort_by == key else '▼' }}</span>
+          </a>
+        </th>
+        {% if key == 'date' %}<th>Time</th>{% endif %}
+      {% endfor %}
+      <th>Settings</th>
+      <th>Actions</th>
+    </tr>
+    {% for r in logs %}
+    <tr>
+      <td class="mono">{{ r.log_date }}</td>
+      <td class="mono" style="color: var(--ink-soft);">{{ r.created_at[11:16] if r.created_at and r.created_at|length >= 16 else "—" }}</td>
+      <td class="clickable-name" data-name="{{ r.name }}" style="color: var(--accent); text-decoration: underline dotted; text-underline-offset: 3px;">
+        {{ r.name }} <span class="mono" style="color: var(--ink-soft);">({{ r.employee_code }})</span>
+      </td>
+      <td>{{ r.department }}</td>
+      <td>{{ r.client }}</td>
+      <td>{{ r.purpose }}</td>
+      <td class="mono">
+        {{ r.pages }}
+        {% if r.private_print %}
+        <span class="badge pending" style="font-size: 10px; padding: 2px 6px; margin-left: 4px; vertical-align: middle;">🔒 Private</span>
+        {% endif %}
+      </td>
+      <td class="mono" style="font-size: 11.5px; color: var(--ink-soft); white-space: nowrap;">
+        {{ r.copies or 1 }}x ·
+        {{ 'Duplex' if r.duplex and r.duplex != 'simplex' else 'Simplex' }} ·
+        {{ 'B&W' if r.color_mode == 'grayscale' else 'Color' }} ·
+        {{ (r.paper_size or 'a4')|upper }}
+      </td>
+      <td>
+        <form method="POST" action="{{ url_for('delete_log', log_id=r.id) }}"
+              onsubmit="return confirm('Are you sure you want to delete this print log entry?');"
+              class="inline">
+          <button type="submit" class="danger btn-sm">Remove</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% elif log_search %}
+  <div class="empty">No print jobs found for employee matching "<strong>{{ log_search }}</strong>".</div>
+  {% else %}
+  <div class="empty">No print jobs logged in this window.</div>
+  {% endif %}
+</div>
+
+<h2>Totals by department</h2>
+<div class="ledger-rule"></div>
+<div class="card">
+  {% if dept_totals %}
+  <table>
+    <tr>
+      <th>Department</th>
+      <th>Jobs</th>
+      <th>Total pages</th>
+    </tr>
+    {% for t in dept_totals %}
+    <tr>
+      <td>{{ t.department }}</td>
+      <td class="mono">{{ t.job_count }}</td>
+      <td class="mono">{{ t.total_pages }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="empty">No data yet.</div>
+  {% endif %}
+</div>
+
+<h2>Totals by employee (all time)</h2>
+<div class="ledger-rule"></div>
+<div class="card">
+  {% if totals %}
+  <table>
+    <tr>
+      <th>Name</th>
+      <th>Department</th>
+      <th>Jobs</th>
+      <th>Total pages</th>
+    </tr>
+    {% for t in totals %}
+    <tr>
+      <td>{{ t.name }}</td>
+      <td>{{ t.department }}</td>
+      <td class="mono">{{ t.job_count }}</td>
+      <td class="mono">{{ t.total_pages }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="empty">No data yet.</div>
+  {% endif %}
+</div>
+
+{# ── Monthly summary section ── #}
+<div class="section-head">
+  <div>
+    <h2 style="margin-top:0;">Totals by month</h2>
+    <div class="ledger-rule"></div>
+  </div>
+  <form method="GET" action="{{ url_for('admin_dashboard') }}" class="inline-form">
+    {# preserve main log filters #}
+    <input type="hidden" name="department" value="{{ department_filter }}">
+    <input type="hidden" name="days" value="{{ days }}">
+    <input type="hidden" name="sort_by" value="{{ sort_by }}">
+    <input type="hidden" name="sort_dir" value="{{ sort_dir }}">
+    <input type="hidden" name="log_search" value="{{ log_search }}">
+
+    <label class="inline-label">From month</label>
+    <select name="start_month" onchange="this.form.submit()" class="pill-select-sm">
+      <option value="">Any</option>
+      {% for m in available_months %}
+      <option value="{{ m }}" {{ 'selected' if start_month == m }}>{{ m }}</option>
+      {% endfor %}
+    </select>
+
+    <label class="inline-label">To month</label>
+    <select name="end_month" onchange="this.form.submit()" class="pill-select-sm">
+      <option value="">Any</option>
+      {% for m in available_months %}
+      <option value="{{ m }}" {{ 'selected' if end_month == m }}>{{ m }}</option>
+      {% endfor %}
+    </select>
+
+    <a href="{{ url_for('export_monthly_report_pdf', start_month=start_month, end_month=end_month) }}"
+       class="btn btn-sm">⬇ Download PDF report</a>
+  </form>
+</div>
+<div class="card">
+  {% if monthly_totals %}
+  <table>
+    <tr>
+      <th>Month</th>
+      <th>Jobs Count</th>
+      <th>Total Pages</th>
+    </tr>
+    {% set ns = namespace(total_jobs=0, total_pages=0) %}
+    {% for m in monthly_totals %}
+      {% set ns.total_jobs = ns.total_jobs + m.job_count %}
+      {% set ns.total_pages = ns.total_pages + m.total_pages %}
+    <tr>
+      <td><strong>{{ m.month_val }}</strong></td>
+      <td class="mono">{{ m.job_count }}</td>
+      <td class="mono">{{ m.total_pages }}</td>
+    </tr>
+    {% endfor %}
+    <tr style="background: var(--accent-soft); font-weight: bold;">
+      <td>Total Sum</td>
+      <td class="mono">{{ ns.total_jobs }}</td>
+      <td class="mono">{{ ns.total_pages }}</td>
+    </tr>
+  </table>
+  {% else %}
+  <div class="empty">No activity logs found for the selected month range.</div>
+  {% endif %}
+</div>
+
+
+{# ── Department manager ── #}
+<div class="section-head">
+  <div>
+    <h2 style="margin-top:0;">Departments</h2>
+    <div class="ledger-rule"></div>
+  </div>
+  <form method="POST" action="{{ url_for('add_department') }}" class="inline-form">
+    <input type="text" name="dept_name" placeholder="New department name" required class="input-sm">
+    <button type="submit" class="btn-sm">Add department</button>
+  </form>
+</div>
+<div class="card">
+  {% if managed_dept_rows %}
+  <table>
+    <tr>
+      <th>Department Name</th>
+      <th></th>
+    </tr>
+    {% for row in managed_dept_rows %}
+    <tr>
+      <td>{{ row.name }}</td>
+      <td>
+        <form method="POST" action="{{ url_for('delete_department', dept_id=row.id) }}"
+              onsubmit="return confirm('Remove department {{ row.name }}? Employees already assigned keep their department.');">
+          <button type="submit" class="danger btn-sm">Remove</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="empty">No departments configured yet. Add one above.</div>
+  {% endif %}
+</div>
+
+{# ── Employees ── #}
+<div class="section-head">
+  <div>
+    <h2 style="margin-top:0;">Employees</h2>
+    <div class="ledger-rule"></div>
+  </div>
+  <form method="POST" action="{{ url_for('add_employee') }}" class="inline-form">
+    <input type="text" name="name" placeholder="Employee Name" required class="input-sm">
+    {% if managed_depts %}
+    <select name="department" required class="input-sm">
+      <option value="" disabled selected>Select department</option>
+      {% for d in managed_depts %}
+      <option value="{{ d }}">{{ d }}</option>
+      {% endfor %}
+    </select>
+    {% else %}
+    <input type="text" name="department" placeholder="Department" required class="input-sm">
+    {% endif %}
+    <input type="text" name="employee_code" placeholder="Account ID (optional, 4 digits)" maxlength="4" pattern="\d{4}" class="input-sm mono" style="width: 200px;">
+    <button type="submit" class="btn-sm">Add employee</button>
+  </form>
+</div>
+
+{# Search + sort bar for employees #}
+<form method="GET" action="{{ url_for('admin_dashboard') }}" id="emp-search-form"
+  class="filter-row">
+  {# preserve log filters + sort #}
+  <input type="hidden" name="department" value="{{ department_filter }}">
+  <input type="hidden" name="days"       value="{{ days }}">
+  <input type="hidden" name="sort_by"    value="{{ sort_by }}">
+  <input type="hidden" name="sort_dir"   value="{{ sort_dir }}">
+  {# preserve emp sort #}
+  <input type="hidden" name="emp_sort_by"  id="emp_sort_by_input"  value="{{ emp_sort_by }}">
+  <input type="hidden" name="emp_sort_dir" id="emp_sort_dir_input" value="{{ emp_sort_dir }}">
+
+  <input type="text" id="emp-search-input" name="emp_search" value="{{ emp_search }}"
+    placeholder="🔍 Search employees by name…"
+    class="search-input">
+  <button type="submit" class="btn-sm">Search</button>
+  {% if emp_search %}
+  <a href="{{ url_for('admin_dashboard', department=department_filter, days=days, sort_by=sort_by, sort_dir=sort_dir, emp_sort_by=emp_sort_by, emp_sort_dir=emp_sort_dir) }}"
+     class="clear-link">✕ Clear</a>
+  {% endif %}
+</form>
+
+<div class="card">
+  {% if employees %}
+  <table>
+    <tr>
+      {% set emp_cols = [('name','Name'), ('department','Department')] %}
+      {% for key, label in emp_cols %}
+        {% if emp_sort_by == key %}
+          {% set next_dir = 'asc' if emp_sort_dir == 'desc' else 'desc' %}
+          {% set arrow = '▼' if emp_sort_dir == 'desc' else '▲' %}
+        {% else %}
+          {% set next_dir = 'asc' %}
+          {% set arrow = '▼' %}
+        {% endif %}
+        <th>
+          <a href="{{ url_for('admin_dashboard',
+                     department=department_filter, days=days,
+                     sort_by=sort_by, sort_dir=sort_dir,
+                     emp_search=emp_search,
+                     emp_sort_by=key, emp_sort_dir=next_dir) }}"
+             class="sort-link">
+            {{ label }}
+            <span style="opacity: {{ '1' if emp_sort_by == key else '0.3' }}; font-size: 11px;">{{ arrow }}</span>
+          </a>
+        </th>
+      {% endfor %}
+      <th>Account ID</th>
+      <th></th>
+    </tr>
+    {% for e in employees %}
+    <tr>
+      <td>{{ e.name }}</td>
+      <td>{{ e.department }}</td>
+      <td>
+        {# Inline Account ID editor #}
+        <div id="code-display-{{ e.employee_code }}" style="display: flex; align-items: center; gap: 6px;">
+          <code class="mono id-code">{{ e.employee_code }}</code>
+          <button type="button" onclick="toggleEdit('{{ e.employee_code }}')" class="ghost-btn">
+            Edit
+          </button>
+        </div>
+        <form id="code-edit-{{ e.employee_code }}" method="POST"
+              action="{{ url_for('edit_employee_code', employee_code=e.employee_code) }}"
+              style="display: none; align-items: center; gap: 6px; margin-top: 4px;">
+          <input type="text" name="new_code" value="{{ e.employee_code }}"
+                 maxlength="4" pattern="\d{4}" required
+                 class="mono" style="width: 66px; padding: 5px 6px; font-size: 13px; letter-spacing: 2px; text-align: center;">
+          <button type="submit" class="btn-sm">Save</button>
+          <button type="button" onclick="toggleEdit('{{ e.employee_code }}')" class="ghost-btn">
+            Cancel
+          </button>
+        </form>
+      </td>
+      <td>
+        <form method="POST" action="{{ url_for('delete_employee', employee_code=e.employee_code) }}"
+              onsubmit="return confirm('Delete {{ e.name }} ({{ e.employee_code }})? This cannot be undone. Their past print history will be kept, but they will no longer be able to submit new print jobs.');">
+          <button type="submit" class="danger btn-sm">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% elif emp_search %}
+  <div class="empty">No employees match "<strong>{{ emp_search }}</strong>".</div>
+  {% else %}
+  <div class="empty">No employees yet.</div>
+  {% endif %}
+</div>
+
+<script>
+  // ── Auto-submit: employee section search (350ms debounce) ──
+  (function () {
+    const input = document.getElementById('emp-search-input');
+    const form  = document.getElementById('emp-search-form');
+    if (!input || !form) return;
+    let timer;
+    input.addEventListener('input', function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () { form.submit(); }, 350);
+    });
+  })();
+
+  // ── Auto-submit: print log search (350ms debounce) ──
+  (function () {
+    const input = document.getElementById('log-search-input');
+    const form  = document.getElementById('log-search-form');
+    if (!input || !form) return;
+    let timer;
+    input.addEventListener('input', function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () { form.submit(); }, 350);
+    });
+  })();
+
+  // ── Click an employee name in the log table to filter by them ──
+  (function () {
+    document.querySelectorAll('td.clickable-name').forEach(function (td) {
+      td.style.cursor = 'pointer';
+      td.title = 'Click to view this employee\'s full print history';
+      td.addEventListener('click', function () {
+        const form  = document.getElementById('log-search-form');
+        const input = document.getElementById('log-search-input');
+        if (!form || !input) return;
+        
+        // Reset department filter to 'all' and days filter to '0' (all time)
+        const deptInput = form.querySelector('input[name="department"]');
+        const daysInput = form.querySelector('input[name="days"]');
+        if (deptInput) deptInput.value = 'all';
+        if (daysInput) daysInput.value = '0';
+        
+        input.value = td.dataset.name;
+        form.submit();
+      });
+    });
+  })();
+
+  // ── Toggle inline Account ID editor ──
+  function toggleEdit(code) {
+    var display = document.getElementById('code-display-' + code);
+    var editForm = document.getElementById('code-edit-' + code);
+    if (!display || !editForm) return;
+    var isHidden = editForm.style.display === 'none' || editForm.style.display === '';
+    display.style.display  = isHidden ? 'none'  : 'flex';
+    editForm.style.display = isHidden ? 'flex'  : 'none';
+    if (isHidden) {
+      var inp = editForm.querySelector('input[name="new_code"]');
+      if (inp) { inp.focus(); inp.select(); }
+    }
+  }
+</script>
+
+
+{# -- Printer Network Configuration -- #}
+<div class="section-head">
+  <div>
+    <h2 style="margin-top:0;">Printer network config</h2>
+    <div class="ledger-rule"></div>
+  </div>
+  <form method="POST" action="{{ url_for('add_printer_setting') }}" class="inline-form">
+    {% if system_printers %}
+    <select name="printer_name" required class="input-sm">
+      <option value="" disabled selected>Select printer</option>
+      {% for p in system_printers %}
+      <option value="{{ p }}">{{ p }}</option>
+      {% endfor %}
+    </select>
+    {% else %}
+    <input type="text" name="printer_name" placeholder="Printer name (exact)" required class="input-sm" style="width: 220px;">
+    {% endif %}
+    <input type="text" name="printer_ip" placeholder="IP e.g. 192.168.100.250" required class="input-sm" style="width: 175px;">
+    <input type="number" name="printer_port" placeholder="Port" value="9100" min="1" max="65535" class="input-sm" style="width: 80px;">
+    <button type="submit" class="btn-sm">Save IP</button>
+  </form>
+</div>
+<div class="card">
+  <p style="font-size: 13px; color: var(--ink-soft); margin: 0 0 14px;">
+    Set the printer IP here so printing works on <strong>Windows</strong> and <strong>Linux</strong>
+    without driver discovery. The system always uses this IP for direct socket printing.
+  </p>
+  {% if printer_settings %}
+  <table>
+    <tr>
+      <th>Printer Name</th><th>IP Address</th><th>Port</th><th></th>
+    </tr>
+    {% for ps in printer_settings %}
+    <tr>
+      <td><code class="id-code">{{ ps.printer_name }}</code></td>
+      <td class="mono">{{ ps.printer_ip }}</td>
+      <td class="mono">{{ ps.printer_port }}</td>
+      <td>
+        <form method="POST" action="{{ url_for('delete_printer_setting', setting_id=ps.id) }}">
+          <button type="submit" class="danger btn-sm">Remove</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="empty">No printer IPs configured. Add one above to enable direct network printing on all platforms.</div>
+  {% endif %}
+</div>
+
+{# -- App updates -- #}
+<div class="section-head">
+  <div>
+    <h2 style="margin-top:0;">App updates</h2>
+    <div class="ledger-rule"></div>
+  </div>
+</div>
+<div class="card">
+  <p style="font-size: 13px; color: var(--ink-soft); margin: 0 0 14px;">
+    This machine is currently running <strong class="mono">v{{ app_version }}</strong>.
+    Every time an update actually installs and the app relaunches, it's logged here —
+    so you can confirm an update really applied, not just that it was offered.
+  </p>
+  {% if update_history %}
+  <table>
+    <tr>
+      <th>Updated at</th>
+      <th>From version</th>
+      <th>To version</th>
+    </tr>
+    {% for u in update_history %}
+    <tr>
+      <td class="mono">{{ u.updated_at[:16].replace('T',' ') }}</td>
+      <td class="mono">v{{ u.from_version }}</td>
+      <td class="mono"><strong>v{{ u.to_version }}</strong></td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="empty">No updates have been applied on this machine yet.</div>
+  {% endif %}
+</div>
+
+<style>
+  .filter-row {
+    display: flex; gap: 10px; margin-bottom: 14px;
+    align-items: center; flex-wrap: wrap;
+  }
+  .section-head {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    flex-wrap: wrap; gap: 15px; margin-top: 8px;
+  }
+  .inline-form {
+    display: flex; gap: 9px; align-items: center;
+    flex-wrap: wrap; margin-bottom: 0;
+  }
+  .inline-label { font-size: 12.5px; color: var(--ink-soft); margin: 0; font-weight: 500; }
+  .pill-select, .pill-select-sm {
+    width: auto; padding: 8px 12px; font-size: 13px;
+    border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--card);
+  }
+  .pill-select-sm { padding: 6px 10px; font-size: 12.5px; }
+  .input-sm { width: auto; padding: 7px 11px; font-size: 13px; }
+  .search-input { flex: 1 1 240px; min-width: 200px; padding: 8px 12px; }
+  .btn-sm { padding: 7px 15px; font-size: 12.5px; }
+  .clear-link { font-size: 12.5px; color: var(--ink-soft); text-decoration: none; }
+  .clear-link:hover { color: var(--warn); }
+  .sort-link {
+    color: inherit; text-decoration: none; display: flex;
+    align-items: center; gap: 4px; white-space: nowrap;
+  }
+  .ghost-btn {
+    font-size: 11px; padding: 3px 9px; background: transparent;
+    border: 1px solid var(--line); border-radius: 6px; cursor: pointer;
+    color: var(--ink-soft); box-shadow: none; font-weight: 500;
+  }
+  .ghost-btn:hover { background: var(--line-soft); color: var(--ink); transform: none; box-shadow: none; }
+  .id-code {
+    background: var(--accent-soft); color: var(--accent-dark);
+    padding: 3px 9px; border-radius: 6px; font-size: 13px; letter-spacing: 1.5px;
+  }
+</style>
+
+{% endblock %}

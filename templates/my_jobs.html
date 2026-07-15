@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}My Jobs{% endblock %}
+{% block nav %}
+  <a href="{{ url_for('employee_form') }}">Back to form</a>
+{% endblock %}
+{% block content %}
+<div class="myjobs-wrap">
+
+  <div class="eyebrow">Private printing</div>
+  <h1>My queued jobs</h1>
+  <div class="ledger-rule"></div>
+  <p class="lead">Enter your PIN to see any private print jobs waiting to be released to the printer.</p>
+
+  <div class="card" style="max-width: 420px; margin-bottom: 30px;">
+    <form method="POST" action="{{ url_for('my_jobs') }}">
+      <label for="pin">Employee PIN</label>
+      <input type="password" inputmode="numeric" id="pin" name="pin" value="{{ pin }}" placeholder="Enter your PIN" autofocus required>
+      <button type="submit" style="width: 100%; margin-top: 18px;">View my jobs</button>
+    </form>
+  </div>
+
+  {% if jobs %}
+  <h2>Queued jobs</h2>
+  <div class="ledger-rule"></div>
+  <div class="card" style="padding: 0;">
+    <table>
+      <thead>
+        <tr>
+          <th>Submitted</th>
+          <th>Client</th>
+          <th>Purpose</th>
+          <th>Pages</th>
+          <th>Printer</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in jobs %}
+        <tr>
+          <td class="mono">{{ job.created_at }}</td>
+          <td>{{ job.client or "—" }}</td>
+          <td>{{ job.purpose or "—" }}</td>
+          <td class="num">{{ job.pages }}</td>
+          <td>{{ job.queued_printer or "—" }}</td>
+          <td>
+            <form class="inline" method="POST" action="{{ url_for('release_job', log_id=job.id) }}">
+              <button type="submit">Release &amp; print</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% elif pin %}
+  <div class="empty">No queued jobs found for this PIN.</div>
+  {% endif %}
+
+</div>
+
+<style>
+  .myjobs-wrap { max-width: 880px; margin: 0 auto; }
+</style>
+{% endblock %}
